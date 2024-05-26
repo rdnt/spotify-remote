@@ -1,3 +1,5 @@
+//go:build windows
+
 package keyboard
 
 const (

@@ -3,6 +3,7 @@ module spotify-seeker
 go 1.21
 
 require (
+	github.com/MarinX/keylogger v0.0.0-20210528193429-a54d7834cc1a
 	github.com/gin-gonic/gin v1.9.1
 	github.com/pkg/errors v0.9.1
 	github.com/rdnt/rdnt v0.0.0-20231225144503-07d9638a715d

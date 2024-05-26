@@ -130,7 +130,32 @@ func main() {
 			}
 
 			if !curr.Playing {
-				err := spotifyClient.Play(ctx)
+				devs, err := spotifyClient.PlayerDevices(ctx)
+				if err != nil {
+					fmt.Println("PlayerDevices failed:", err)
+					return
+				}
+
+				if len(devs) == 0 {
+					fmt.Println("No devices found")
+					return
+				}
+
+				var devId spotify.ID
+				for _, dev := range devs {
+					if dev.Active {
+						devId = dev.ID
+						break
+					}
+				}
+
+				if devId == "" {
+					devId = devs[0].ID
+				}
+
+				err = spotifyClient.PlayOpt(ctx, &spotify.PlayOptions{
+					DeviceID: &devId,
+				})
 				if err != nil {
 					fmt.Println("Play failed:", err)
 					return

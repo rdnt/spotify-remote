@@ -106,9 +106,9 @@ func main() {
 		spotifyHttpClient,
 		spotify.WithRetry(true),
 	)
-	kb := keyboard.NewKeyboard(func(code int) {
+	kb := keyboard.New(func(code int) {
 		switch code {
-		case keyboard.VK_MEDIA_NEXT_TRACK:
+		case keyboard.NextTrack:
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
@@ -119,24 +119,42 @@ func main() {
 			}
 
 			fmt.Println("Next track")
-		case keyboard.VK_MEDIA_PLAY_PAUSE:
+		case keyboard.PlayPause:
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			err := spotifyClient.Pause(ctx)
+			curr, err := spotifyClient.PlayerCurrentlyPlaying(ctx)
 			if err != nil {
-				fmt.Println("Pause failed:", err)
+				fmt.Println("CurrentlyPlaying failed:", err)
 				return
 			}
 
-			fmt.Println("Paused")
+			if !curr.Playing {
+				err := spotifyClient.Play(ctx)
+				if err != nil {
+					fmt.Println("Play failed:", err)
+					return
+				}
+
+				fmt.Println("Resumed")
+			} else {
+				err := spotifyClient.Pause(ctx)
+				if err != nil {
+					fmt.Println("Pause failed:", err)
+					return
+				}
+
+				fmt.Println("Paused")
+			}
 		}
 	}, nil)
 
-	kb.Capture()
+	kb.Start()
 
 	done := make(chan os.Signal, 10)
 	signal.Notify(done, os.Interrupt, os.Kill, syscall.SIGTERM)
 
 	<-done
+
+	kb.Stop()
 }

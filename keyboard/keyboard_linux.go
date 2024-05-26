@@ -100,6 +100,7 @@ func (k *Keyboard) track(ctx context.Context, dev string) {
 			select {
 			case <-ctx.Done():
 				return
+
 			case evt, ok := <-l.Read():
 				if !ok {
 					return
@@ -109,9 +110,12 @@ func (k *Keyboard) track(ctx context.Context, dev string) {
 					continue
 				}
 
-				code := mapKey(evt.Code)
+				code, ok := mapKey(evt.Code)
+				if !ok {
+					continue
+				}
 
-				if evt.Value == 1 {
+				if evt.Value != 0 {
 					if _, ok := k.keys[code]; !ok {
 						k.keys[code] = true
 
@@ -120,12 +124,18 @@ func (k *Keyboard) track(ctx context.Context, dev string) {
 						}
 					}
 				} else {
-					if _, ok := k.keys[code]; ok {
-						delete(k.keys, code)
+					_, ok := k.keys[code]
 
-						if k.keyUpHandler != nil {
-							go k.keyUpHandler(code)
+					if !ok {
+						if k.keyDownHandler != nil {
+							go k.keyDownHandler(code)
 						}
+					} else {
+						delete(k.keys, code)
+					}
+
+					if k.keyUpHandler != nil {
+						go k.keyUpHandler(code)
 					}
 				}
 			}
@@ -133,15 +143,15 @@ func (k *Keyboard) track(ctx context.Context, dev string) {
 	}()
 }
 
-func mapKey(key uint16) int {
+func mapKey(key uint16) (int, bool) {
 	switch key {
 	case 163:
-		return NextTrack
+		return NextTrack, true
 	case 165:
-		return PrevTrack
+		return PrevTrack, true
 	case 164:
-		return PlayPause
+		return PlayPause, true
 	default:
-		return int(key)
+		return 0, false
 	}
 }

@@ -149,7 +149,7 @@ func main() {
 		}
 	}, nil)
 
-	kb.Capture()
+	kb.Start()
 
 	done := make(chan os.Signal, 10)
 	signal.Notify(done, os.Interrupt, os.Kill, syscall.SIGTERM)

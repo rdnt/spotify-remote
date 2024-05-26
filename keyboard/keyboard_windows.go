@@ -22,11 +22,11 @@ func New(keyDown, keyUp func(int)) *Keyboard {
 	return k
 }
 
-func (k *Keyboard) Capture() {
-	go k.capture()
+func (k *Keyboard) Start() {
+	k.run()
 }
 
-func (k *Keyboard) capture() {
+func (k *Keyboard) run() {
 	keyboardHook = setWindowsHookEx(
 		WH_KEYBOARD_LL,
 		func(nCode int, wparam WPARAM, lparam LPARAM) LRESULT {

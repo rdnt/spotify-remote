@@ -1,9 +1,12 @@
-//go:build !windows
+//go:build linux
 
 package keyboard
 
 import (
+	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/MarinX/keylogger"
 )
@@ -12,6 +15,10 @@ type Keyboard struct {
 	keyDownHandler func(int)
 	keyUpHandler   func(int)
 	keys           map[int]bool
+	devs           map[string]bool
+	wg             *sync.WaitGroup
+	cancel         context.CancelFunc
+	mux            sync.Mutex
 }
 
 func New(keyDown, keyUp func(int)) *Keyboard {
@@ -19,37 +26,85 @@ func New(keyDown, keyUp func(int)) *Keyboard {
 		keyDownHandler: keyDown,
 		keyUpHandler:   keyUp,
 		keys:           make(map[int]bool),
+		devs:           map[string]bool{},
+		wg:             &sync.WaitGroup{},
 	}
 
 	return k
 }
 
-func (k *Keyboard) Capture() {
-	go k.capture()
-}
+func (k *Keyboard) Start() {
+	ctx, cancel := context.WithCancel(context.Background())
+	k.cancel = cancel
 
-var fs []func()
+	k.start(ctx)
+}
 
 func (k *Keyboard) Stop() {
-	for _, f := range fs {
-		f()
-	}
+	k.cancel()
+	k.wg.Wait()
 }
 
-func (k *Keyboard) capture() {
-	// TODO: track connects/disconnects
-	devs := keylogger.FindAllKeyboardDevices()
+func (k *Keyboard) start(ctx context.Context) {
+	k.wg.Add(1)
 
-	for _, dev := range devs {
+	go func() {
+		defer k.wg.Done()
+
+		ticker := time.NewTicker(1 * time.Second)
+
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+
+			case <-ticker.C:
+				k.mux.Lock()
+
+				devs := keylogger.FindAllKeyboardDevices()
+				for _, dev := range devs {
+					if _, ok := k.devs[dev]; !ok {
+						k.devs[dev] = true
+
+						k.track(ctx, dev)
+					}
+				}
+
+				k.mux.Unlock()
+			}
+		}
+	}()
+}
+
+func (k *Keyboard) track(ctx context.Context, dev string) {
+	k.wg.Add(1)
+
+	go func() {
+		defer k.wg.Done()
+
+		defer func() {
+			k.mux.Lock()
+			delete(k.devs, dev)
+			k.mux.Unlock()
+		}()
+
 		l, err := keylogger.New(dev)
 		if err != nil {
 			fmt.Println(err)
-			continue
+			return
 		}
-		fs = append(fs, func() { l.Close() })
+		defer l.Close()
 
-		go func() {
-			for evt := range l.Read() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case evt, ok := <-l.Read():
+				if !ok {
+					return
+				}
+
 				if evt.Type != keylogger.EvKey {
 					continue
 				}
@@ -74,8 +129,8 @@ func (k *Keyboard) capture() {
 					}
 				}
 			}
-		}()
-	}
+		}
+	}()
 }
 
 func mapKey(key uint16) int {

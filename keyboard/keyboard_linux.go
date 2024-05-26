@@ -37,7 +37,7 @@ func (k *Keyboard) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	k.cancel = cancel
 
-	k.start(ctx)
+	k.run(ctx)
 }
 
 func (k *Keyboard) Stop() {
@@ -45,7 +45,7 @@ func (k *Keyboard) Stop() {
 	k.wg.Wait()
 }
 
-func (k *Keyboard) start(ctx context.Context) {
+func (k *Keyboard) run(ctx context.Context) {
 	k.wg.Add(1)
 
 	go func() {

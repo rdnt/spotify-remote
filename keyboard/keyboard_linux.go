@@ -96,12 +96,14 @@ func (k *Keyboard) track(ctx context.Context, dev string) {
 		}
 		defer l.Close()
 
+		evts := l.Read()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 
-			case evt, ok := <-l.Read():
+			case evt, ok := <-evts:
 				if !ok {
 					return
 				}
